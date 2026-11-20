@@ -1,0 +1,60 @@
+name: Deploy Hussein Badr English website
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Unpack the website with its original folder structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f hbe-website-package.zip
+          rm -rf dist
+          mkdir -p dist
+          unzip -q hbe-website-package.zip -d dist
+          test -s dist/index.html
+          test -s dist/assets/css/style.css
+          test -s dist/assets/css/brand.css
+          test -s dist/assets/js/app.js
+          test -s dist/assets/img/hbe-logo-512.png
+          test -s dist/assets/img/hbe-portrait.webp
+          test -s dist/manifest.webmanifest
+          echo "Website files: $(find dist -type f | wc -l)"
+          echo "HTML pages: $(find dist -type f -name '*.html' | wc -l)"
+          if find dist -type f \( -name 'brand.html' -o -name 'installation-guide.html' -o -name '*.pdf' \) | grep -q .; then
+            echo 'Unexpected internal or excluded file found in website package.'
+            exit 1
+          fi
+
+      - name: Upload website artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
